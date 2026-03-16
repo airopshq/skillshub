@@ -9,53 +9,27 @@ Centralized skills directory for AI agent teams. Sync, update, and create [agent
 3. Agents can **update and create skills** from conversations via the MCP server
 4. Changes are committed and pushed — teammates get them on their next sync
 
-## Quick Start (Joining an Existing Team)
+## Quick Start
 
-If your team already has a skills repo, you just need 3 steps:
+**Requirements:** Python 3.11+, Git, and access to your team's skills GitHub repo.
 
-**Requirements:** Python 3.11+ and Git
+### Install
 
 ```bash
-# 1. Install
 pip install git+https://github.com/bernabe9/skillshub.git
+```
 
-# 2. Connect to your team's repo
+### Connect to your team's skills repo
+
+```bash
 skillshub init https://github.com/your-org/skills.git
-
-# 3. Configure your agent (pick one)
 ```
 
-**Claude Code:**
-```bash
-claude mcp add --transport stdio --scope user skillshub -- skillshub mcp
-```
-Then add to `~/.claude/settings.json`:
-```json
-{
-  "hooks": {
-    "SessionStart": [{
-      "matcher": "startup|resume",
-      "hooks": [{
-        "type": "command",
-        "command": "skillshub sync",
-        "timeout": 30
-      }]
-    }]
-  }
-}
-```
+This clones the repo and syncs all skills to your local agent directories.
 
-**OpenClaw** (tell it in chat):
-> "Install skillshub: `pip install git+https://github.com/bernabe9/skillshub.git`, then run `skillshub init https://github.com/your-org/skills.git`"
+### Configure your agent
 
-**Claude Cowork** (from your terminal):
-```bash
-# Add to ~/Library/Application Support/Claude/claude_desktop_config.json:
-# { "mcpServers": { "skillshub": { "command": "skillshub", "args": ["mcp"] } } }
-# Then restart Claude Desktop
-```
-
-That's it — your skills are synced and ready.
+See [Agent Setup Details](#agent-setup-details) below for your specific agent (Claude Code, OpenClaw, Cowork, etc.).
 
 ---
 

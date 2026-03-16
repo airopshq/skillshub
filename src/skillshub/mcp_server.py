@@ -8,8 +8,13 @@ from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from .config import get_skills_dir
-from .repo import commit_and_push, list_skills as repo_list_skills, pull
+from .repo import (
+    commit_and_push,
+    find_skill_dir,
+    get_default_skills_dir,
+    list_skills as repo_list_skills,
+    pull,
+)
 from .sync_engine import sync_single_skill
 from .validation import validate_skill_name
 
@@ -69,8 +74,13 @@ def _write_files_and_publish(
         file_path.write_text(file_entry["content"])
 
     # Commit and push
+    from .repo import find_skill_repo_path, get_repo_path
+
+    repo_path = find_skill_repo_path(skill_name) or str(
+        skill_dir.relative_to(get_repo_path())
+    )
     try:
-        sha = commit_and_push([f"skills/{skill_name}"], commit_msg)
+        sha = commit_and_push([repo_path], commit_msg)
     except RuntimeError as e:
         return {"status": "error", "message": str(e)}
 
@@ -122,8 +132,8 @@ def get_skill(skill_name: str) -> str:
     Returns:
         JSON with the skill content and list of resource file paths.
     """
-    skill_dir = get_skills_dir() / skill_name
-    if not skill_dir.exists():
+    skill_dir = find_skill_dir(skill_name)
+    if skill_dir is None:
         return json.dumps(
             {
                 "status": "error",
@@ -132,10 +142,6 @@ def get_skill(skill_name: str) -> str:
         )
 
     skill_md = skill_dir / "SKILL.md"
-    if not skill_md.exists():
-        return json.dumps(
-            {"status": "error", "message": f"No SKILL.md in '{skill_name}'."}
-        )
 
     resources = [
         str(f.relative_to(skill_dir))
@@ -171,8 +177,8 @@ def update_skill(
     Returns:
         JSON with status and commit SHA
     """
-    skill_dir = get_skills_dir() / skill_name
-    if not skill_dir.exists():
+    skill_dir = find_skill_dir(skill_name)
+    if skill_dir is None:
         return json.dumps(
             {
                 "status": "error",
@@ -228,8 +234,7 @@ def create_skill(
     _safe_pull()
 
     # Check existence after pull to avoid TOCTOU
-    skill_dir = get_skills_dir() / name
-    if skill_dir.exists():
+    if find_skill_dir(name) is not None:
         return json.dumps(
             {
                 "status": "error",
@@ -237,6 +242,7 @@ def create_skill(
             }
         )
 
+    skill_dir = get_default_skills_dir() / name
     skill_dir.mkdir(parents=True)
     result = _write_files_and_publish(name, skill_dir, files, f"Create skill: {name}")
     if result["status"] == "applied":

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from git import Repo, InvalidGitRepositoryError, GitCommandError
 
-from .config import get_repo_path, get_skills_dir
+from .config import get_repo_path, get_skills_dirs
 
 
 def clone_repo(url: str, path: Path | None = None) -> Repo:
@@ -73,45 +73,80 @@ def commit_and_push(
 
 
 def list_skills() -> list[dict]:
-    """List all skills in the repo with metadata."""
+    """List all skills across all configured skills directories."""
     from .validation import parse_skill_metadata
 
-    skills_dir = get_skills_dir()
-    if not skills_dir.exists():
-        return []
-
     results = []
-    for skill_dir in sorted(skills_dir.iterdir()):
-        if not skill_dir.is_dir():
+    seen = set()
+
+    for skills_dir in get_skills_dirs():
+        if not skills_dir.exists():
             continue
-        skill_md = skill_dir / "SKILL.md"
-        if not skill_md.exists():
-            continue
-        try:
-            meta = parse_skill_metadata(skill_md)
-            results.append(
-                {
-                    "name": meta["name"] or skill_dir.name,
-                    "description": meta["description"],
-                    "path": str(skill_dir),
-                }
-            )
-        except Exception:
-            results.append(
-                {
-                    "name": skill_dir.name,
-                    "description": "(failed to parse)",
-                    "path": str(skill_dir),
-                }
-            )
+        for skill_dir in sorted(skills_dir.iterdir()):
+            if not skill_dir.is_dir():
+                continue
+            skill_md = skill_dir / "SKILL.md"
+            if not skill_md.exists():
+                continue
+            try:
+                meta = parse_skill_metadata(skill_md)
+                name = meta["name"] or skill_dir.name
+                if name in seen:
+                    continue
+                seen.add(name)
+                results.append(
+                    {
+                        "name": name,
+                        "description": meta["description"],
+                        "path": str(skill_dir),
+                    }
+                )
+            except Exception:
+                name = skill_dir.name
+                if name in seen:
+                    continue
+                seen.add(name)
+                results.append(
+                    {
+                        "name": name,
+                        "description": "(failed to parse)",
+                        "path": str(skill_dir),
+                    }
+                )
 
     return results
+
+
+def find_skill_dir(skill_name: str) -> Path | None:
+    """Find a skill directory by name across all skills paths."""
+    for skills_dir in get_skills_dirs():
+        candidate = skills_dir / skill_name
+        if candidate.is_dir() and (candidate / "SKILL.md").exists():
+            return candidate
+    return None
+
+
+def find_skill_repo_path(skill_name: str) -> str | None:
+    """Find a skill's repo-relative path (for git operations)."""
+    repo = get_repo_path()
+    skill_dir = find_skill_dir(skill_name)
+    if skill_dir is None:
+        return None
+    return str(skill_dir.relative_to(repo))
+
+
+def get_default_skills_dir() -> Path:
+    """Return the first configured skills dir (for creating new skills)."""
+    dirs = get_skills_dirs()
+    return dirs[0] if dirs else get_repo_path() / "skills"
 
 
 def get_skill_log(skill_name: str, max_count: int = 20) -> list[dict]:
     """Get git log for a specific skill."""
     r = open_repo()
-    skill_path = f"skills/{skill_name}"
+    skill_path = find_skill_repo_path(skill_name)
+    if not skill_path:
+        return []
 
     commits = []
     for commit in r.iter_commits(paths=skill_path, max_count=max_count):
@@ -130,16 +165,15 @@ def get_skill_log(skill_name: str, max_count: int = 20) -> list[dict]:
 def get_skill_diff(skill_name: str, ref1: str = "HEAD~1", ref2: str = "HEAD") -> str:
     """Get diff for a skill between two refs."""
     r = open_repo()
-    skill_path = f"skills/{skill_name}"
+    skill_path = find_skill_repo_path(skill_name) or f"skills/{skill_name}"
     return r.git.diff(ref1, ref2, "--", skill_path)
 
 
 def rollback_skill(skill_name: str, ref: str) -> str:
     """Restore a skill to a previous version and commit."""
     r = open_repo()
-    skill_path = f"skills/{skill_name}"
+    skill_path = find_skill_repo_path(skill_name) or f"skills/{skill_name}"
 
-    # Checkout the skill directory from the given ref
     r.git.checkout(ref, "--", skill_path)
 
     return commit_and_push(

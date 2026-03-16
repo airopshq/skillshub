@@ -11,7 +11,6 @@ from . import __version__
 from .config import (
     get_repo_path,
     get_repo_url,
-    get_skills_dir,
     get_sync_targets,
     save_config,
     load_config,
@@ -19,6 +18,8 @@ from .config import (
 from .repo import (
     clone_repo,
     commit_and_push,
+    find_skill_dir,
+    get_default_skills_dir,
     get_skill_diff,
     get_skill_log,
     list_skills,
@@ -41,6 +42,12 @@ def cli() -> None:
 @click.argument("github_url")
 @click.option(
     "--path",
+    "skills_path",
+    multiple=True,
+    help="Skills path within the repo (e.g. engineering/skills). Can specify multiple. If omitted, auto-discovers all skills/ directories.",
+)
+@click.option(
+    "--clone-path",
     type=click.Path(),
     default=None,
     help="Local path for the repo clone (default: ~/.skillshub/repo)",
@@ -50,12 +57,20 @@ def cli() -> None:
     multiple=True,
     help="Directories to sync skills to (can specify multiple)",
 )
-def init(github_url: str, path: str | None, sync_target: tuple[str, ...]) -> None:
+def init(
+    github_url: str,
+    skills_path: tuple[str, ...],
+    clone_path: str | None,
+    sync_target: tuple[str, ...],
+) -> None:
     """Initialize SkillsHub with a GitHub repository.
 
-    Clones the repo and configures sync targets.
+    Clones the repo and configures sync targets. Optionally specify which
+    skills/ paths to subscribe to:
+
+      skillshub init https://github.com/org/skills.git --path engineering/skills --path company-wide/skills
     """
-    repo_path = Path(path).expanduser() if path else get_repo_path()
+    repo_path = Path(clone_path).expanduser() if clone_path else get_repo_path()
 
     if repo_path.exists() and any(repo_path.iterdir()):
         click.echo(f"Directory {repo_path} already exists. Pulling latest...")
@@ -64,13 +79,11 @@ def init(github_url: str, path: str | None, sync_target: tuple[str, ...]) -> Non
         click.echo(f"Cloning {github_url}...")
         clone_repo(github_url, repo_path)
 
-    # Ensure skills/ directory exists in the repo
-    skills_dir = repo_path / "skills"
-    skills_dir.mkdir(exist_ok=True)
-
     config = load_config()
     config["repo_url"] = github_url
     config["repo_path"] = str(repo_path)
+    if skills_path:
+        config["skills_paths"] = list(skills_path)
     if sync_target:
         config["sync_targets"] = list(sync_target)
     elif "sync_targets" not in config:
@@ -78,6 +91,10 @@ def init(github_url: str, path: str | None, sync_target: tuple[str, ...]) -> Non
     save_config(config)
 
     click.echo(f"Initialized. Repo: {repo_path}")
+    if skills_path:
+        click.echo(f"Skills paths: {', '.join(skills_path)}")
+    else:
+        click.echo("Skills paths: auto-discover")
     click.echo(f"Sync targets: {', '.join(config['sync_targets'])}")
 
     # Auto-sync after init
@@ -124,15 +141,16 @@ def push(skill_dir: str) -> None:
             click.echo(f"  - {e}", err=True)
         raise SystemExit(1)
 
-    # Copy to repo
-    dst = get_skills_dir() / src.name
+    # Copy to the first (default) skills dir
+    dst = get_default_skills_dir() / src.name
     if dst.exists():
         shutil.rmtree(dst)
     shutil.copytree(src, dst)
 
     # Commit and push
+    repo_path = str(dst.relative_to(get_repo_path()))
     sha = commit_and_push(
-        [f"skills/{src.name}"],
+        [repo_path],
         f"Push skill: {src.name}",
     )
 
@@ -180,7 +198,7 @@ def log(skill_name: str | None, count: int) -> None:
     else:
         # Show recent commits across all skills
         repo = open_repo()
-        for commit in repo.iter_commits(paths="skills/", max_count=count):
+        for commit in repo.iter_commits(max_count=count):
             click.echo(
                 f"  {commit.hexsha[:8]}  "
                 f"{commit.committed_datetime.strftime('%Y-%m-%d')}  "
@@ -226,12 +244,12 @@ def create(name: str) -> None:
         click.echo(f"Invalid name: {error}", err=True)
         raise SystemExit(1)
 
-    skill_dir = get_skills_dir() / name
-    if skill_dir.exists():
+    if find_skill_dir(name) is not None:
         click.echo(f"Skill '{name}' already exists.", err=True)
         raise SystemExit(1)
 
-    skill_dir.mkdir(parents=True)
+    skill_dir = get_default_skills_dir() / name
+    skill_dir.mkdir(parents=True, exist_ok=True)
     (skill_dir / "SKILL.md").write_text(
         f"""---
 name: {name}

@@ -5,46 +5,41 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from .config import get_skills_dir, get_sync_targets
+from .config import get_skills_dirs, get_sync_targets
 
 
 def sync_skills(
     targets: list[str] | None = None,
-    skills_dir: Path | None = None,
+    skills_dirs: list[Path] | None = None,
 ) -> dict:
     """Sync skills from repo to agent directories.
 
+    Scans all configured skills directories and syncs to all targets.
     Returns a summary: { synced: [...], removed: [...], unchanged: [...] }
     """
-    src = skills_dir or get_skills_dir()
+    src_dirs = skills_dirs or get_skills_dirs()
     target_dirs = [Path(t).expanduser() for t in (targets or get_sync_targets())]
 
-    if not src.exists():
-        return {
-            "synced": [],
-            "removed": [],
-            "unchanged": [],
-            "error": "Skills directory not found in repo",
-        }
-
-    # Get list of skills in the repo
-    repo_skills = {
-        d.name for d in src.iterdir() if d.is_dir() and (d / "SKILL.md").exists()
-    }
+    # Collect all skills across all source directories
+    # Later sources override earlier ones (last wins on name collision)
+    repo_skills: dict[str, Path] = {}
+    for src in src_dirs:
+        if not src.exists():
+            continue
+        for d in src.iterdir():
+            if d.is_dir() and (d / "SKILL.md").exists():
+                repo_skills[d.name] = d
 
     summary: dict[str, list[str]] = {"synced": [], "removed": [], "unchanged": []}
 
     for target in target_dirs:
         target.mkdir(parents=True, exist_ok=True)
 
-        # Get list of skills currently in target
         existing_skills = {
             d.name for d in target.iterdir() if d.is_dir() and (d / "SKILL.md").exists()
         }
 
-        # Copy new/updated skills
-        for skill_name in repo_skills:
-            src_skill = src / skill_name
+        for skill_name, src_skill in repo_skills.items():
             dst_skill = target / skill_name
 
             if _needs_update(src_skill, dst_skill):
@@ -55,9 +50,8 @@ def sync_skills(
                 if skill_name not in summary["unchanged"]:
                     summary["unchanged"].append(skill_name)
 
-        # Remove skills that are no longer in the repo
-        # Only remove skills that have a .skillshub marker (to avoid deleting user-created skills)
-        for skill_name in existing_skills - repo_skills:
+        # Remove skillshub-managed skills that are no longer in any source
+        for skill_name in existing_skills - set(repo_skills.keys()):
             marker = target / skill_name / ".skillshub"
             if marker.exists():
                 shutil.rmtree(target / skill_name)
@@ -67,10 +61,12 @@ def sync_skills(
     return summary
 
 
-def sync_single_skill(skill_name: str, skills_dir: Path | None = None) -> None:
+def sync_single_skill(skill_name: str) -> None:
     """Sync a single skill from repo to all agent directories."""
-    src = (skills_dir or get_skills_dir()) / skill_name
-    if not src.exists():
+    from .repo import find_skill_dir
+
+    src = find_skill_dir(skill_name)
+    if src is None:
         return
 
     targets = [Path(t).expanduser() for t in get_sync_targets()]

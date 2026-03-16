@@ -27,12 +27,7 @@ The repo just needs a `skills/` directory. Each skill is a subdirectory with a `
 ### 2. Install SkillsHub
 
 ```bash
-# From source (during development)
-cd /path/to/skillshub
-uv sync
-
-# Or install globally (recommended for teammates)
-uv tool install /path/to/skillshub
+pip install git+https://github.com/bernabe9/skillshub.git
 ```
 
 ### 3. Connect to your team's repo
@@ -52,7 +47,7 @@ Two things to configure: a **hook** (auto-sync on session start) and the **MCP s
 **Add the MCP server:**
 
 ```bash
-claude mcp add --transport stdio --scope user skillshub -- uv run --project /path/to/skillshub skillshub mcp
+claude mcp add --transport stdio --scope user skillshub -- skillshub mcp
 ```
 
 **Add the SessionStart hook** to `~/.claude/settings.json`:
@@ -71,8 +66,6 @@ claude mcp add --transport stdio --scope user skillshub -- uv run --project /pat
   }
 }
 ```
-
-> If you installed from source (not `uv tool install`), use `uv run --project /path/to/skillshub skillshub sync` instead.
 
 **Verify:** Start a new Claude Code session, then run `/mcp` — you should see `skillshub · ✔ connected`.
 
@@ -119,8 +112,7 @@ Cowork runs on your local machine but executes commands in a sandboxed VM. It **
 **Step 1 — Install skillshub** (from your terminal, not Cowork):
 
 ```bash
-uv tool install /path/to/skillshub
-# or: pip install git+https://github.com/bernabe9/skillshub.git
+pip install git+https://github.com/bernabe9/skillshub.git
 ```
 
 **Step 2 — Connect to repo** (from your terminal):
@@ -135,27 +127,14 @@ skillshub init https://github.com/your-org/skills.git
 {
   "mcpServers": {
     "skillshub": {
-      "command": "/full/path/to/uv",
-      "args": ["run", "--project", "/path/to/skillshub", "skillshub", "mcp"]
-    }
-  }
-}
-```
-
-> **Important:** Use full absolute paths — Cowork's desktop process doesn't inherit your shell's PATH. Find your paths with `which uv` and use the full result.
-
-If you installed skillshub globally (`uv tool install` or `pip install`), you can use the simpler config — but still use the full path:
-
-```json
-{
-  "mcpServers": {
-    "skillshub": {
-      "command": "/full/path/to/skillshub",
+      "command": "skillshub",
       "args": ["mcp"]
     }
   }
 }
 ```
+
+> **Important:** If `skillshub` is not in the desktop app's PATH, use the full path. Find it with `which skillshub`.
 
 **Step 4 — Restart Claude Desktop** to pick up the MCP config.
 
@@ -219,7 +198,7 @@ When a new teammate joins, they run:
 
 ```bash
 # 1. Install
-uv tool install /path/to/skillshub
+pip install git+https://github.com/bernabe9/skillshub.git
 
 # 2. Connect
 skillshub init https://github.com/your-org/skills.git
@@ -228,6 +207,17 @@ skillshub init https://github.com/your-org/skills.git
 ```
 
 That's it — all team skills are immediately available in their agent.
+
+## Development
+
+For contributors working on skillshub itself:
+
+```bash
+git clone https://github.com/bernabe9/skillshub.git
+cd skillshub
+uv sync              # Install dependencies
+uv run skillshub     # Run from source
+```
 
 ## CLI Reference
 

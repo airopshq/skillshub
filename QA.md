@@ -123,8 +123,7 @@ All setup steps are done from **your terminal**, not Cowork:
 
 1. **Install skillshub:**
    ```bash
-   uv tool install /path/to/skillshub
-   # or: pip install git+https://github.com/bernabe9/skillshub.git
+   pip install git+https://github.com/bernabe9/skillshub.git
    ```
 
 2. **Init skillshub:**

@@ -267,6 +267,44 @@ TODO — add instructions for the agent here.
 
 
 @cli.command()
+@click.confirmation_option(
+    prompt="This will remove the local repo clone and all synced skills. Continue?"
+)
+def reset() -> None:
+    """Remove all skillshub data (repo clone, config, synced skills)."""
+    import shutil as sh
+
+    from .config import CONFIG_DIR, CONFIG_FILE, get_sync_targets
+
+    # Remove synced skills (only those with .skillshub marker)
+    for target in get_sync_targets():
+        target_path = Path(target).expanduser()
+        if not target_path.exists():
+            continue
+        for skill_dir in target_path.iterdir():
+            if skill_dir.is_dir() and (skill_dir / ".skillshub").exists():
+                sh.rmtree(skill_dir)
+                click.echo(f"Removed {skill_dir}")
+
+    # Remove repo clone
+    repo_path = get_repo_path()
+    if repo_path.exists():
+        sh.rmtree(repo_path)
+        click.echo(f"Removed {repo_path}")
+
+    # Remove config
+    if CONFIG_FILE.exists():
+        CONFIG_FILE.unlink()
+        click.echo(f"Removed {CONFIG_FILE}")
+
+    # Remove config dir if empty
+    if CONFIG_DIR.exists() and not any(CONFIG_DIR.iterdir()):
+        CONFIG_DIR.rmdir()
+
+    click.echo("Reset complete.")
+
+
+@cli.command()
 def mcp() -> None:
     """Start the local MCP server (stdio transport)."""
     from .mcp_server import run_mcp_server

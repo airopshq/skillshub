@@ -9,49 +9,27 @@ Centralized skills directory for AI agent teams. Sync, update, and create [agent
 3. Agents can **update and create skills** from conversations via the MCP server
 4. Changes are committed and pushed — teammates get them on their next sync
 
-## Setup
+## Quick Start (Joining an Existing Team)
 
-### 1. Create a GitHub repo for your team's skills
+If your team already has a skills repo, you just need 3 steps:
 
-```bash
-gh repo create your-org/skills --private
-cd skills
-mkdir skills && touch skills/.gitkeep
-git add . && git commit -m "Initial commit"
-git push --set-upstream origin main
-cd ~
-```
-
-The repo just needs a `skills/` directory. Each skill is a subdirectory with a `SKILL.md` file.
-
-### 2. Install SkillsHub
+**Requirements:** Python 3.11+ and Git
 
 ```bash
+# 1. Install
 pip install git+https://github.com/bernabe9/skillshub.git
-```
 
-### 3. Connect to your team's repo
-
-```bash
+# 2. Connect to your team's repo
 skillshub init https://github.com/your-org/skills.git
+
+# 3. Configure your agent (pick one)
 ```
 
-This clones the repo locally and syncs all skills to `~/.agents/skills/`.
-
-### 4. Configure your agent
-
-#### Claude Code
-
-Two things to configure: a **hook** (auto-sync on session start) and the **MCP server** (write-back).
-
-**Add the MCP server:**
-
+**Claude Code:**
 ```bash
 claude mcp add --transport stdio --scope user skillshub -- skillshub mcp
 ```
-
-**Add the SessionStart hook** to `~/.claude/settings.json`:
-
+Then add to `~/.claude/settings.json`:
 ```json
 {
   "hooks": {
@@ -67,62 +45,130 @@ claude mcp add --transport stdio --scope user skillshub -- skillshub mcp
 }
 ```
 
-**Verify:** Start a new Claude Code session, then run `/mcp` — you should see `skillshub · ✔ connected`.
+**OpenClaw** (tell it in chat):
+> "Install skillshub: `pip install git+https://github.com/bernabe9/skillshub.git`, then run `skillshub init https://github.com/your-org/skills.git`"
 
-#### OpenClaw
+**Claude Cowork** (from your terminal):
+```bash
+# Add to ~/Library/Application Support/Claude/claude_desktop_config.json:
+# { "mcpServers": { "skillshub": { "command": "skillshub", "args": ["mcp"] } } }
+# Then restart Claude Desktop
+```
 
-OpenClaw runs remotely, so you interact with it through chat. Tell it:
+That's it — your skills are synced and ready.
 
-**Step 1 — Install:**
-> "Install skillshub: `pip install git+https://github.com/bernabe9/skillshub.git`"
+---
 
-**Step 2 — Connect to repo:**
-> "Run `skillshub init https://github.com/your-org/skills.git`"
+## Setting Up a New Skills Repo
 
-**Step 3 — Add MCP server for write-back:**
-> "Add an MCP server to your config: name `skillshub`, command `skillshub`, args `["mcp"]`, transport `stdio`. Then restart to pick it up."
+If you're starting from scratch for your team:
 
-Or tell it to add this to `openclaw.json`:
+### 1. Create the repo
 
+```bash
+gh repo create your-org/skills --private
+cd skills
+mkdir skills && touch skills/.gitkeep
+git add . && git commit -m "Initial commit"
+git push --set-upstream origin main
+```
+
+### 2. Organize by team (optional)
+
+For larger orgs, organize skills into folders:
+
+```
+your-org/skills/
+├── engineering/
+│   └── skills/
+│       ├── deploy-staging/SKILL.md
+│       └── code-review/SKILL.md
+├── sales/
+│   └── skills/
+│       └── call-prep/SKILL.md
+└── company-wide/
+    └── skills/
+        └── security-questionnaire/SKILL.md
+```
+
+Teammates subscribe to the folders they need:
+
+```bash
+# Engineering
+skillshub init https://github.com/org/skills.git --path engineering/skills --path company-wide/skills
+
+# Sales
+skillshub init https://github.com/org/skills.git --path sales/skills --path company-wide/skills
+
+# Everything
+skillshub init https://github.com/org/skills.git
+```
+
+### 3. Add your first skill
+
+```bash
+skillshub create my-first-skill
+# Edit ~/.skillshub/repo/skills/my-first-skill/SKILL.md
+skillshub push ~/.skillshub/repo/skills/my-first-skill
+```
+
+Or ask your agent: *"create a skill called my-first-skill that does X"*
+
+---
+
+## Agent Setup Details
+
+### Claude Code
+
+Two things: a **hook** (auto-sync on session start) and the **MCP server** (write-back from conversations).
+
+**MCP server:**
+```bash
+claude mcp add --transport stdio --scope user skillshub -- skillshub mcp
+```
+
+**SessionStart hook** in `~/.claude/settings.json`:
 ```json
 {
-  "mcp": {
-    "servers": {
-      "skillshub": {
-        "command": "skillshub",
-        "args": ["mcp"],
-        "transport": "stdio"
-      }
-    }
+  "hooks": {
+    "SessionStart": [{
+      "matcher": "startup|resume",
+      "hooks": [{
+        "type": "command",
+        "command": "skillshub sync",
+        "timeout": 30
+      }]
+    }]
   }
 }
 ```
 
-**Step 4 — Keep skills fresh:**
-> "Run `skillshub sync` every 5 minutes to keep skills fresh"
+**Verify:** Start a new session, run `/mcp` — should show `skillshub · ✔ connected`.
 
-Or run `skillshub sync` manually whenever you want the latest skills.
+**How it works:** Skills sync to `~/.agents/skills/` on session start. Claude activates them natively (slash commands, auto-activation). Write-back goes through the MCP `update_skill`/`create_skill` tools.
 
-**Verify:** Tell OpenClaw "say hello" — it should activate the skill from the repo.
+### OpenClaw
 
-#### Claude Cowork
+OpenClaw runs remotely — all setup is done through chat.
 
-Cowork runs on your local machine but executes commands in a sandboxed VM. It **cannot** run CLI commands like `skillshub sync` directly. Instead, it accesses skills entirely through the MCP server's read tools (`list_skills`, `get_skill`).
+1. Tell it: *"Install skillshub: `pip install git+https://github.com/bernabe9/skillshub.git`"*
+2. Tell it: *"Run `skillshub init https://github.com/your-org/skills.git`"*
+3. Tell it: *"Add an MCP server: name `skillshub`, command `skillshub`, args `["mcp"]`, transport `stdio`"*
+4. Optionally: *"Run `skillshub sync` every 5 minutes to keep skills fresh"*
 
-**Step 1 — Install skillshub** (from your terminal, not Cowork):
+**How it works:** Skills sync to the host filesystem. OpenClaw picks them up natively. Write-back goes through MCP.
 
+### Claude Cowork
+
+Cowork runs in a sandboxed VM — it can't run CLI commands on your machine. It accesses skills entirely through MCP.
+
+**From your terminal:**
 ```bash
 pip install git+https://github.com/bernabe9/skillshub.git
-```
-
-**Step 2 — Connect to repo** (from your terminal):
-
-```bash
 skillshub init https://github.com/your-org/skills.git
 ```
 
-**Step 3 — Add MCP server** to `~/Library/Application Support/Claude/claude_desktop_config.json`:
-
+**Add to** `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
@@ -134,79 +180,67 @@ skillshub init https://github.com/your-org/skills.git
 }
 ```
 
-> **Important:** If `skillshub` is not in the desktop app's PATH, use the full path. Find it with `which skillshub`.
+> If `skillshub` isn't found, use the full path from `which skillshub`.
 
-**Step 4 — Restart Claude Desktop** to pick up the MCP config.
+**Restart Claude Desktop.**
 
-**Step 5 — Verify.** In Cowork, ask "what skills are available in skillshub?" — it should call `list_skills` and show your team's skills.
+**How it works:** Cowork uses MCP tools (`list_skills`, `get_skill`) to discover and read skills. Write-back goes through `update_skill`/`create_skill`. No filesystem sync needed — MCP reads directly from the repo.
 
-**How Cowork uses skills:**
-- **Discovery:** Cowork calls `list_skills` MCP tool (not filesystem)
-- **Reading:** Cowork calls `get_skill` MCP tool to load full instructions
-- **Writing:** Cowork calls `update_skill` / `create_skill` to modify or create skills
-- **Sync not needed:** Cowork reads directly from the repo via MCP, so it always gets the latest version
+### Other Agents (Cursor, Copilot, Gemini CLI, etc.)
 
-#### Other agents (Cursor, Copilot, Gemini CLI, etc.)
+Most agents scan `~/.agents/skills/` natively. Just run `skillshub sync` and skills appear. For write-back, configure the MCP server using your agent's MCP config format.
 
-Most agents scan `~/.agents/skills/` natively. Just run `skillshub sync` and skills appear. For write-back, configure the MCP server using each agent's MCP config format.
+---
 
 ## Usage
 
-### Push an existing skill
+### Sync latest skills
+```bash
+skillshub sync
+```
+Automatic in Claude Code (SessionStart hook). Manual for other agents.
 
+### Update a skill from a conversation
+Tell your agent: *"update the deploy skill to also run smoke tests"* — calls `update_skill` MCP tool, commits to GitHub.
+
+### Create a skill from a conversation
+Tell your agent: *"create a skill called lint-check that runs our linting pipeline"* — calls `create_skill` MCP tool.
+
+### Push a skill from the CLI
 ```bash
 skillshub push ./my-skill
 ```
 
-The directory must contain a `SKILL.md` with valid frontmatter (`name` and `description` fields).
-
-### Create a new skill
-
-```bash
-skillshub create my-skill-name
-# Edit the generated SKILL.md, then:
-skillshub push ~/.skillshub/repo/skills/my-skill-name
-```
-
-Or ask your agent: *"create a skill called my-skill-name that does X"* — it calls the `create_skill` MCP tool.
-
-### Update a skill from a conversation
-
-While using a skill, tell your agent: *"update this skill to also do Y"* — it calls the `update_skill` MCP tool, commits with a rationale, and pushes to GitHub.
-
-### Sync latest skills
-
-```bash
-skillshub sync
-```
-
-This happens automatically via the SessionStart hook in Claude Code. For other agents, run it manually or set up a similar hook.
-
 ### View history
-
 ```bash
 skillshub list                     # List all skills
-skillshub log                      # Recent changes across all skills
+skillshub log                      # Recent changes
 skillshub log my-skill             # History for one skill
-skillshub diff my-skill            # Diff of latest change
-skillshub rollback my-skill HEAD~1 # Revert to previous version
+skillshub diff my-skill            # Latest change
+skillshub rollback my-skill HEAD~1 # Revert
 ```
 
-## Teammate Onboarding
+---
 
-When a new teammate joins, they run:
+## Requirements
 
-```bash
-# 1. Install
-pip install git+https://github.com/bernabe9/skillshub.git
+- **Python 3.11+**
+- **Git** (for repo operations)
+- **GitHub access** to your team's skills repo (HTTPS or SSH)
 
-# 2. Connect
-skillshub init https://github.com/your-org/skills.git
+## CLI Reference
 
-# 3. Configure agent (see agent-specific instructions above)
-```
-
-That's it — all team skills are immediately available in their agent.
+| Command | Description |
+|---------|-------------|
+| `skillshub init <url>` | Clone repo and configure. Use `--path` to subscribe to specific folders |
+| `skillshub sync` | Pull latest and distribute to agent directories |
+| `skillshub push <dir>` | Push a local skill to the repo |
+| `skillshub list` | List all skills |
+| `skillshub log [skill]` | Show version history |
+| `skillshub diff <skill>` | Show changes between versions |
+| `skillshub rollback <skill> <ref>` | Restore a previous version |
+| `skillshub create <name>` | Scaffold a new skill |
+| `skillshub mcp` | Start the MCP server (stdio) |
 
 ## Development
 
@@ -218,19 +252,5 @@ cd skillshub
 uv sync              # Install dependencies
 uv run skillshub     # Run from source
 ```
-
-## CLI Reference
-
-| Command | Description |
-|---------|-------------|
-| `skillshub init <url>` | Clone repo and configure sync targets |
-| `skillshub sync` | Pull latest and distribute to agent directories |
-| `skillshub push <dir>` | Push a local skill to the repo |
-| `skillshub list` | List all skills |
-| `skillshub log [skill]` | Show version history |
-| `skillshub diff <skill>` | Show changes between versions |
-| `skillshub rollback <skill> <ref>` | Restore a previous version |
-| `skillshub create <name>` | Scaffold a new skill |
-| `skillshub mcp` | Start the MCP server (stdio) |
 
 See [VISION.md](VISION.md) for the full product vision and architecture.

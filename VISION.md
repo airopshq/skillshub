@@ -1,8 +1,14 @@
 # SkillsHub: Product Vision
 
+## Core Belief
+
+Every organization runs on processes — deploying code, answering security questionnaires, reviewing PRs, onboarding new hires, preparing sales calls. Today these processes live in people's heads, scattered docs, or tribal knowledge. When someone describes a process well enough that an agent can execute it, that description becomes a **durable organizational asset** — one that is agent-agnostic, human-agnostic, and continuously improvable.
+
+A skill is not tied to a specific agent or a specific person. It's a portable package of instructions, scripts, and assets that any agent (or human) can follow to accomplish a task. The value compounds: every time someone runs a skill and improves it, the improvement is available to everyone — across every agent, every team member, every future hire.
+
 ## Problem Statement
 
-AI agent skills — portable packages of instructions, scripts, and assets that extend agent capabilities — are becoming the standard way organizations encode repeatable processes. The [agentskills.io](https://agentskills.io/specification) specification, originally developed by Anthropic and now adopted by 30+ agents (Claude Code, Cursor, Copilot, Gemini CLI, OpenClaw, Goose, Roo Code, Windsurf, and others), defines skills as directories containing a `SKILL.md` file with optional scripts, references, and assets.
+AI agent skills — portable packages following the [agentskills.io](https://agentskills.io/specification) specification — are the emerging standard for encoding these processes. Adopted by 30+ agents (Claude Code, Cursor, Copilot, Gemini CLI, OpenClaw, Goose, Roo Code, Windsurf, and others), skills are directories containing a `SKILL.md` file with optional scripts, references, and assets.
 
 **The problem is distribution.** Today, teams face three compounding issues:
 
@@ -74,11 +80,12 @@ GitHub Repo (source of truth)
 
 ## Key Differentiators
 
-1. **Write-back from conversations** — The only tool that lets agents propose skill improvements during use, creating a continuous improvement loop
-2. **Native skill activation** — Skills work through each agent's built-in system (slash commands, auto-activation, progressive disclosure), not through a separate MCP tool layer
-3. **Zero infrastructure** — GitHub is the backend. No server to deploy, no database to manage
-4. **Universal** — Works with any agent that scans `.agents/skills/` (30+ agents) or supports MCP (virtually all modern agents)
-5. **Git-native versioning** — Every change is a commit with a rationale. Full history, diffs, rollback, and audit trail come free.
+1. **Processes as assets** — Skills turn tribal knowledge into portable, versioned, continuously improving organizational assets. They're agent-agnostic (any agent can run them) and human-agnostic (any team member can use them).
+2. **Write-back from conversations** — The only tool that lets agents propose skill improvements during use. Every time someone runs a process and finds a better way, the improvement flows back to the whole org.
+3. **Native skill activation** — Skills work through each agent's built-in system (slash commands, auto-activation, progressive disclosure), not through a separate MCP tool layer
+4. **Zero infrastructure** — GitHub is the backend. No server to deploy, no database to manage
+5. **Universal** — Works with any agent that scans `.agents/skills/` (30+ agents) or supports MCP (virtually all modern agents)
+6. **Git-native versioning** — Every change is a commit with a rationale. Full history, diffs, rollback, and audit trail come free.
 
 ## Success Metrics
 

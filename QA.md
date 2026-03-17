@@ -123,7 +123,7 @@ All setup steps are done from **your terminal**, not Cowork:
 
 1. **Install skillshub:**
    ```bash
-   pip install git+https://github.com/bernabe9/skillshub.git
+   pip install git+https://github.com/airopshq/skillshub.git
    ```
 
 2. **Init skillshub:**
@@ -188,7 +188,7 @@ All setup steps are done from **your terminal**, not Cowork:
 OpenClaw runs remotely. All setup is done by talking to it in chat.
 
 **Step 1 — Install skillshub.** Tell OpenClaw:
-> "Install skillshub: `pip install git+https://github.com/bernabe9/skillshub.git`"
+> "Install skillshub: `pip install git+https://github.com/airopshq/skillshub.git`"
 
 **Step 2 — Connect to repo.** Tell OpenClaw:
 > "Run `skillshub init https://github.com/your-org/skills.git`"

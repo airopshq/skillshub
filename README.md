@@ -16,7 +16,7 @@ Centralized skills directory for AI agent teams. Sync, update, and create [agent
 ### Install
 
 ```bash
-pip install git+https://github.com/bernabe9/skillshub.git
+pip install git+https://github.com/airopshq/skillshub.git
 ```
 
 ### Connect to your team's skills repo
@@ -111,7 +111,7 @@ This adds the MCP server and SessionStart hook automatically. Start a new sessio
 
 OpenClaw runs remotely — all setup is done through chat.
 
-1. Tell it: *"Install skillshub: `pip install git+https://github.com/bernabe9/skillshub.git`"*
+1. Tell it: *"Install skillshub: `pip install git+https://github.com/airopshq/skillshub.git`"*
 2. Tell it: *"Run `skillshub init https://github.com/your-org/skills.git`"*
 3. Tell it: *"Add an MCP server: name `skillshub`, command `skillshub`, args `["mcp"]`, transport `stdio`"*
 4. Optionally: *"Run `skillshub sync` every 5 minutes to keep skills fresh"*
@@ -124,7 +124,7 @@ Cowork runs in a sandboxed VM — it can't run CLI commands on your machine. It 
 
 **From your terminal:**
 ```bash
-pip install git+https://github.com/bernabe9/skillshub.git
+pip install git+https://github.com/airopshq/skillshub.git
 skillshub init https://github.com/your-org/skills.git
 ```
 
@@ -207,7 +207,7 @@ skillshub rollback my-skill HEAD~1 # Revert
 For contributors working on skillshub itself:
 
 ```bash
-git clone https://github.com/bernabe9/skillshub.git
+git clone https://github.com/airopshq/skillshub.git
 cd skillshub
 uv sync              # Install dependencies
 uv run skillshub     # Run from source

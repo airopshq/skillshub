@@ -15,7 +15,7 @@ from .repo import (
     pull,
 )
 from .sync_engine import sync_single_skill
-from .validation import validate_skill_name
+from .validation import validate_skill_content, validate_skill_name
 
 mcp = FastMCP(
     "skillshub",
@@ -61,6 +61,19 @@ def _write_files_and_publish(
     commit_msg: str,
 ) -> dict:
     """Write files to skill dir, commit, push, and sync locally. Returns result dict."""
+    # Validate SKILL.md frontmatter if present in the file set
+    for file_entry in files:
+        if file_entry["path"] == "SKILL.md":
+            errors = validate_skill_content(
+                file_entry["content"], expected_name=skill_name
+            )
+            if errors:
+                return {
+                    "status": "error",
+                    "message": "SKILL.md validation failed:\n- " + "\n- ".join(errors),
+                }
+            break
+
     # Validate and write files
     for file_entry in files:
         file_path = _validate_file_path(skill_dir, file_entry["path"])

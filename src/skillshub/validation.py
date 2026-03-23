@@ -66,6 +66,47 @@ def validate_skill_dir(skill_dir: Path) -> list[str]:
     return errors
 
 
+def validate_skill_content(content: str, expected_name: str | None = None) -> list[str]:
+    """Validate SKILL.md content string. Returns list of errors (empty = valid).
+
+    This is used to validate content *before* it's written to disk (e.g. via MCP
+    create_skill / update_skill).
+    """
+    errors: list[str] = []
+
+    try:
+        post = frontmatter.loads(content)
+    except Exception as e:
+        return [f"Failed to parse SKILL.md frontmatter: {e}"]
+
+    if not post.metadata:
+        return [
+            "SKILL.md is missing frontmatter. "
+            "It must start with a YAML block between --- markers containing at least 'name' and 'description'."
+        ]
+
+    name = post.metadata.get("name", "")
+    description = post.metadata.get("description", "")
+
+    if not name:
+        errors.append("SKILL.md frontmatter missing required 'name' field")
+    else:
+        name_error = validate_skill_name(name)
+        if name_error:
+            errors.append(f"Invalid skill name '{name}' in frontmatter: {name_error}")
+        if expected_name and name != expected_name:
+            errors.append(
+                f"Skill name in frontmatter ('{name}') does not match expected name ('{expected_name}')"
+            )
+
+    if not description:
+        errors.append("SKILL.md frontmatter missing required 'description' field")
+    elif len(description) > MAX_DESCRIPTION_LENGTH:
+        errors.append(f"Description exceeds {MAX_DESCRIPTION_LENGTH} characters")
+
+    return errors
+
+
 def parse_skill_metadata(skill_md_path: Path) -> dict:
     """Parse SKILL.md and return metadata (name, description)."""
     post = frontmatter.load(str(skill_md_path))

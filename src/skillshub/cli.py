@@ -331,14 +331,18 @@ def _setup_claude_code() -> None:
     import json as json_mod
     import subprocess
 
-    skillshub_bin = shutil.which("skillshub")
-    if not skillshub_bin:
+    if not shutil.which("skillshub"):
         click.echo("Error: 'skillshub' not found in PATH.", err=True)
         raise SystemExit(1)
 
-    # 1. Add MCP server via claude CLI
+    # 1. Add MCP server via claude CLI (remove first to update on reinstall)
     click.echo("Adding MCP server...")
     try:
+        subprocess.run(
+            ["claude", "mcp", "remove", "skillshub"],
+            capture_output=True,
+            text=True,
+        )
         subprocess.run(
             [
                 "claude",
@@ -350,7 +354,7 @@ def _setup_claude_code() -> None:
                 "user",
                 "skillshub",
                 "--",
-                skillshub_bin,
+                "skillshub",
                 "mcp",
             ],
             check=True,
@@ -363,10 +367,7 @@ def _setup_claude_code() -> None:
             "  Warning: 'claude' CLI not found. Add the MCP server manually.", err=True
         )
     except subprocess.CalledProcessError as e:
-        if "already exists" in e.stderr.lower():
-            click.echo("  MCP server already configured.")
-        else:
-            click.echo(f"  Warning: {e.stderr.strip()}", err=True)
+        click.echo(f"  Warning: {e.stderr.strip()}", err=True)
 
     # 2. Add SessionStart hook to settings.json
     click.echo("Adding SessionStart hook...")
@@ -376,34 +377,40 @@ def _setup_claude_code() -> None:
     if settings_path.exists():
         settings = json_mod.loads(settings_path.read_text())
 
-    hook_command = f"{skillshub_bin} sync"
+    hook_command = "skillshub sync"
 
-    # Check if hook already exists
-    existing_hooks = settings.get("hooks", {}).get("SessionStart", [])
-    already_configured = any(
-        any(h.get("command", "") == hook_command for h in group.get("hooks", []))
-        for group in existing_hooks
-    )
+    hooks = settings.setdefault("hooks", {})
+    session_hooks = hooks.setdefault("SessionStart", [])
 
-    if already_configured:
-        click.echo("  SessionStart hook already configured.")
-    else:
-        hooks = settings.setdefault("hooks", {})
-        session_hooks = hooks.setdefault("SessionStart", [])
-        session_hooks.append(
-            {
-                "matcher": "startup|resume",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": hook_command,
-                        "timeout": 30,
-                    }
-                ],
-            }
+    # Remove any stale skillshub sync hooks (from previous installs / paths)
+    old_count = len(session_hooks)
+    session_hooks[:] = [
+        group
+        for group in session_hooks
+        if not any(
+            "skillshub sync" in h.get("command", "") for h in group.get("hooks", [])
         )
-        settings_path.parent.mkdir(parents=True, exist_ok=True)
-        settings_path.write_text(json_mod.dumps(settings, indent=2) + "\n")
+    ]
+    removed = old_count - len(session_hooks)
+
+    session_hooks.append(
+        {
+            "matcher": "startup|resume",
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": hook_command,
+                    "timeout": 30,
+                }
+            ],
+        }
+    )
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json_mod.dumps(settings, indent=2) + "\n")
+
+    if removed:
+        click.echo(f"  Replaced {removed} stale hook(s) with updated path.")
+    else:
         click.echo("  SessionStart hook added.")
 
     click.echo("\nDone! Start a new Claude Code session to activate.")

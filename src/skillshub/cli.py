@@ -493,5 +493,7 @@ def _print_sync_summary(result: dict) -> None:
         click.echo(f"Synced {len(synced)} skill(s): {', '.join(synced)}")
     if removed:
         click.echo(f"Removed {len(removed)} skill(s): {', '.join(removed)}")
-    if not synced and not removed:
-        click.echo(f"All {total} skill(s) up to date.")
+    if unchanged:
+        click.echo(f"{len(unchanged)} skill(s) already up to date.")
+    if not total and not removed:
+        click.echo("No skills found.")

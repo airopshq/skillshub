@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 
@@ -316,14 +317,16 @@ def reset() -> None:
 
 
 @cli.command()
-@click.argument("agent", type=click.Choice(["claude-code"]))
+@click.argument("agent", type=click.Choice(["claude-code", "cowork"]))
 def setup(agent: str) -> None:
     """Configure an agent to use SkillsHub.
 
-    Currently supports: claude-code
+    Supports: claude-code, cowork
     """
     if agent == "claude-code":
         _setup_claude_code()
+    elif agent == "cowork":
+        _setup_cowork()
 
 
 def _setup_claude_code() -> None:
@@ -415,6 +418,56 @@ def _setup_claude_code() -> None:
 
     click.echo("\nDone! Start a new Claude Code session to activate.")
     click.echo("Verify with: /mcp (should show skillshub · ✔ connected)")
+
+
+def _setup_cowork() -> None:
+    """Configure Claude Desktop (Cowork) with the SkillsHub MCP server."""
+    import json as json_mod
+    import platform
+
+    if not shutil.which("skillshub"):
+        click.echo("Error: 'skillshub' not found in PATH.", err=True)
+        raise SystemExit(1)
+
+    # Locate claude_desktop_config.json
+    system = platform.system()
+    if system == "Darwin":
+        config_path = (
+            Path.home()
+            / "Library"
+            / "Application Support"
+            / "Claude"
+            / "claude_desktop_config.json"
+        )
+    elif system == "Linux":
+        config_path = Path.home() / ".config" / "Claude" / "claude_desktop_config.json"
+    elif system == "Windows":
+        appdata = Path(os.environ.get("APPDATA", ""))
+        config_path = appdata / "Claude" / "claude_desktop_config.json"
+    else:
+        click.echo(f"Unsupported platform: {system}", err=True)
+        raise SystemExit(1)
+
+    click.echo(f"Config: {config_path}")
+
+    # Read existing config or start fresh
+    config: dict = {}
+    if config_path.exists():
+        config = json_mod.loads(config_path.read_text())
+
+    # Add/update the skillshub MCP server
+    servers = config.setdefault("mcpServers", {})
+    skillshub_path = shutil.which("skillshub")
+    servers["skillshub"] = {
+        "command": skillshub_path,
+        "args": ["mcp"],
+    }
+
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(json_mod.dumps(config, indent=2) + "\n")
+
+    click.echo("Added skillshub MCP server.")
+    click.echo("\nRestart Claude Desktop to activate.")
 
 
 @cli.command()

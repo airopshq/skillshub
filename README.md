@@ -122,27 +122,11 @@ OpenClaw runs remotely — all setup is done through chat.
 
 Cowork runs in a sandboxed VM — it can't run CLI commands on your machine. It accesses skills entirely through MCP.
 
-**From your terminal:**
 ```bash
-pip install git+https://github.com/airopshq/skillshub.git
-skillshub init https://github.com/your-org/skills.git
+skillshub setup cowork
 ```
 
-**Add to** `~/Library/Application Support/Claude/claude_desktop_config.json`:
-```json
-{
-  "mcpServers": {
-    "skillshub": {
-      "command": "skillshub",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-> If `skillshub` isn't found, use the full path from `which skillshub`.
-
-**Restart Claude Desktop.**
+This adds the MCP server to `claude_desktop_config.json` automatically. Restart Claude Desktop to activate.
 
 **How it works:** Cowork uses MCP tools (`list_skills`, `get_skill`) to discover and read skills. Write-back goes through `update_skill`/`create_skill`. No filesystem sync needed — MCP reads directly from the repo.
 
